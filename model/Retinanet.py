@@ -1,4 +1,5 @@
 import torch
+import math
 import torch.nn as nn
 import torch.nn.init as init
 
@@ -19,12 +20,15 @@ class RetinaNet(nn.Module):
         self.loc_head = self._make_head(self.num_anchors * 4)
         self.cls_head = self._make_head(self.num_anchors * self.num_classes)
         self._init_weights()
+        pi = 0.01
+        init.constant_(self.cls_head[-1].bias, -math.log((1 - pi) / pi))
         if pre_train_path is not None:
             ckpt = torch.load(pre_train_path)
             state_dict = self.fpn.state_dict()
             for key in ckpt.keys():
                 if not key.startswith('fc'):
                     state_dict[key] = ckpt[key]
+            self.fpn.load_state_dict(state_dict)
 
 
     def forward(self, input):
@@ -49,6 +53,12 @@ class RetinaNet(nn.Module):
             layers.append(nn.ReLU())
         layers.append(nn.Conv2d(256, output_channels, kernel_size = 3, stride = 1, padding = 1))
         return nn.Sequential(*layers)
+
+    def freeze_bn(self):
+        '''Freeze BatchNorm layers.'''
+        for layer in self.modules():
+            if isinstance(layer, nn.BatchNorm2d):
+                layer.eval()
 
     def _init_weights(self):
         for m in self.modules():

@@ -91,7 +91,7 @@ class ToPercentCoords(object):
 
 
 class Resize(object):
-    def __init__(self, size=300):
+    def __init__(self, size=600):
         self.size = size
 
     def __call__(self, image, boxes=None, labels=None):
@@ -392,15 +392,14 @@ class Augmentation(object):
     def __init__(self, size = 224):
         self.size = size
         self.augment = Compose([
-            ConvertFromInts(),
-            PhotometricDistort(),
-            RandomSampleCrop(),
-            RandomMirror(),
+            # ConvertFromInts(),
+            # PhotometricDistort(),
+            # RandomSampleCrop(),
+            # RandomMirror(),
             Resize(self.size),
         ])
 
     def __call__(self, img, boxes, labels):
         image, boxes, labels = self.augment(img, boxes, labels)
-        image = image / 255
         image = transforms.ToTensor()(image)
         return image, boxes, labels

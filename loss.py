@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
+from utils import one_hot_embedding
 
 class FocalLoss(nn.Module):
     def __init__(self, alpha = None, gamma = 2):
@@ -18,24 +18,29 @@ class FocalLoss(nn.Module):
         self.alpha = alpha
         self.gamma = gamma
         self.sigmoid = nn.Sigmoid()
-        self.bce_loss = nn.BCELoss()
 
     def forward(self, inputs, targets):
-        N = inputs.size(0)
-        C = inputs.size(1)
-        probs = self.sigmoid(inputs)
+        class_onehot = one_hot_embedding(targets.data.cpu().long(), 1 + self.num_classes)  # [N, 81]
+        class_onehot = torch.Tensor(class_onehot[:, 1:]).cuda()  # exclude background
 
-        # 对label做onehot处理
-        class_mask = torch.zeros([N, C + 1]).cuda()
-        ids = targets.reshape([-1, 1])
-        class_mask.scatter_(1, ids.data, 1.)
-        class_mask = class_mask[:, 1:]
-        alpha = self.alpha * class_mask + (1 - self.alpha) * (1 - class_mask)
-        focal_weight = probs * (1 - class_mask) + (1 - probs) * class_mask
-        focal_weight = alpha * focal_weight ** self.gamma
-        bce_loss = nn.BCELoss(reduction = 'none')(probs, class_mask)
-        bce_loss = (focal_weight * bce_loss).sum()
-        return bce_loss
+        prob = self.sigmoid(inputs)
+        pt = prob * class_onehot + (1 - prob) * (1 - class_onehot)
+        w = self.alpha * class_onehot + (1 - self.alpha) * (1 - class_onehot)
+        w = w * (1 - pt).pow(self.gamma)
+        return F.binary_cross_entropy_with_logits(inputs, class_onehot, w, size_average = False)
+        # N = inputs.size(0)
+        # C = inputs.size(1)
+        # probs = self.sigmoid(inputs)
+        #
+        # # 对label做onehot处理
+        # class_mask = torch.zeros([N, C]).cuda()
+        # ids = targets.reshape([-1, 1])
+        # class_mask.scatter_(1, ids.data, 1.)
+        # alpha = self.alpha * class_mask + (1 - self.alpha) * (1 - class_mask)
+        # focal_weight = probs * (1 - class_mask) + (1 - probs) * class_mask
+        # focal_weight = alpha * focal_weight ** self.gamma
+        #
+        # return F.binary_cross_entropy_with_logits(inputs, class_mask, focal_weight, reduction = 'sum')
 
 class MultiBoxLoss(nn.Module):
     def __init__(self, alpha = 0.25, gamma = 2, num_classes = 80):

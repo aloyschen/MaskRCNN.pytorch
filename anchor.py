@@ -26,9 +26,9 @@ class Anchor(nn.Module):
         """
         anchor_boxes = []
         feature_map_num = len(self.anchor_areas)
-        feature_map_sizes = [(round(input_size / pow(2, i + 3)), round(input_size / pow(2, i + 3))) for i in range(feature_map_num)]
+        feature_map_sizes = [(np.ceil(input_size / pow(2, i + 3)), np.ceil(input_size / pow(2, i + 3))) for i in range(feature_map_num)]
         for index, feature_map_size in enumerate(feature_map_sizes):
-            for i, j in product(range(feature_map_size[0]), repeat = 2):
+            for i, j in product(range(int(feature_map_size[0])), repeat = 2):
                 cx = (i + 0.5) * input_size / feature_map_size[0]
                 cy = (j + 0.5) * input_size / feature_map_size[0]
                 s = self.anchor_areas[index]
